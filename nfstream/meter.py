@@ -192,7 +192,7 @@ def send_error(root_idx, channel, msg):
 
 
 def meter_workflow(source, snaplen, decode_tunnels, bpf_filter, promisc, n_roots, root_idx, mode,
-                   idle_timeout, active_timeout, accounting_mode, udps, n_dissections, statistics, splt,
+                   idle_timeout, active_timeout, idle_per_protocol, active_per_protocol, accounting_mode, udps, n_dissections, statistics, splt,
                    channel, tracker, lock, group_id, system_visibility_mode):
     """ Metering workflow """
     set_affinity(root_idx+1)
@@ -231,6 +231,11 @@ def meter_workflow(source, snaplen, decode_tunnels, bpf_filter, promisc, n_roots
     while remaining_packets:
         nf_packet = ffi.new("struct nf_packet *")
         ret = lib.capture_next(capture, nf_packet, decode_tunnels, n_roots, root_idx, mode)
+
+        protocol = nf_packet.protocol
+        
+        active_timeout = int(active_per_protocol[protocol]) if protocol in active_per_protocol else active_timeout
+        idle_timeout = int(idle_per_protocol[protocol]) if protocol in idle_per_protocol else idle_timeout
         if ret > 0:  # Valid must be processed by meter
             packet_time = nf_packet.time
             if packet_time > meter_tick:

@@ -54,6 +54,8 @@ class NFStreamer(object):
                  snapshot_length=1536,
                  idle_timeout=120,  # https://www.kernel.org/doc/Documentation/networking/nf_conntrack-sysctl.txt
                  active_timeout=1800,
+                 idle_per_protocol={},
+                 active_per_protocol={},
                  accounting_mode=0,
                  udps=None,
                  n_dissections=20,
@@ -75,6 +77,8 @@ class NFStreamer(object):
         self.snapshot_length = snapshot_length
         self.idle_timeout = idle_timeout
         self.active_timeout = active_timeout
+        self._idle_per_protocol = idle_per_protocol
+        self._active_per_protocol = active_per_protocol
         self.accounting_mode = accounting_mode
         self.udps = udps
         self.n_dissections = n_dissections
@@ -162,6 +166,49 @@ class NFStreamer(object):
                                           ((value < 0) or (value*1000) > 18446744073709551615)):  # max uint64_t
             raise ValueError("Please specify a valid idle_timeout parameter (positive integer in seconds).")
         self._idle_timeout = value
+
+    @property
+    def active_timeout(self):
+        return self._active_timeout
+
+    @active_timeout.setter
+    def active_timeout(self, value):
+        if not isinstance(value, int) or (isinstance(value, int) and
+                                          ((value < 0) or (value*1000) > 18446744073709551615)):  # max uint64_t
+            raise ValueError("Please specify a valid active_timeout parameter (positive integer in seconds).")
+        self._active_timeout = value
+        
+    @property
+    def idle_per_protocol(self):
+        return self._idle_per_protocol.copy()
+
+    @idle_per_protocol.setter
+    def idle_per_protocol(self, value):
+        if isinstance(value, dict):
+            for k, v in value.items():
+                if (v < 0) or (v*1000) > 18446744073709551615:  # max uint64_t
+                    raise ValueError("Please specify a valid idle_per_protocol parameter "
+                                        f"for protocol '{k}' (positive integer in seconds).")
+        else:
+            raise ValueError('Please specify a valid idle_per_protocol parameter')
+
+        self._idle_per_protocol = value
+
+    @property
+    def active_per_protocol(self):
+        return self._active_per_protocol.copy()
+
+    @active_per_protocol.setter
+    def active_per_protocol(self, value):
+        if isinstance(value, dict):
+            for k, v in value.items():
+                if (v < 0) or (v*1000) > 18446744073709551615:  # max uint64_t
+                    raise ValueError("Please specify a valid active_per_protocol parameter "
+                                        f"for protocol '{k}' (positive integer in seconds).")
+        else:
+            raise ValueError(f'Please specify a valid active_per_protocol parameter')
+
+        self._active_per_protocol = value
 
     @property
     def active_timeout(self):
@@ -365,6 +412,8 @@ class NFStreamer(object):
                                                              self._mode,
                                                              self.idle_timeout*1000,
                                                              self.active_timeout*1000,
+                                                             {k: v*1e3 for k, v in self.idle_per_protocol.items()},
+                                                             {k: v*1e3 for k, v in self.active_per_protocol.items()},
                                                              self.accounting_mode,
                                                              self.udps,
                                                              self.n_dissections,
